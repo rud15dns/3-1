@@ -393,16 +393,20 @@ void *reader(void *arg)
     while (alive) {
     
     	pthread_mutex_lock(&mutex);
-    	pthread_cond_wait(&r, &mutex);
-    	pthread_mutex_unlock(&mutex);
+    	while(!writers){ // writer가 기다리고 있다면, r의 대기표를 뽑는다.
+    		pthread_cond_wait(&r, &mutex);
+    	}
+    	//pthread_mutex_unlock(&mutex);
+    	// 상호배타 시작
+    	//pthread_mutex_lock(&mutex);
+    	//phtread_cond_signal(&r);
     	
-    	pthread_mutex_lock(&mutex);
-    	phtread_cond_signal(&r);
+    	//R이 while문을 탈출. signal을 받았다.
     	readers++;
-    	if (readers == 1){
+    	while (readers == 1){
     		pthread_cond_wait(&w, &mutex);
     	}
-    	pthread_mutex_lock(&mutex);
+    	pthread_mutex_unlock(&mutex);
     	
         /*
          * Begin Critical Section
@@ -417,7 +421,6 @@ void *reader(void *arg)
         readers--;
         if (readers == 0){
         	pthread_cond_signal(&w);
-        	pthread_mutex_unlock(&mutex);
         }
         pthread_mutex_unlock(&mutex);
         
@@ -449,9 +452,10 @@ void *writer(void *arg)
      * 스레드가 살아 있는 동안 같은 이미지를 반복해서 출력한다.
      */
     while (alive) {
+    
     	pthread_mutex_lock(&mutex);
     	writers++;
-    	if (writers == 1){
+    	while (writers == 1){
     		pthread_cond_wait(&r, &mutex);
     	}
     	pthread_mutex_unlock(&mutex);
@@ -459,7 +463,9 @@ void *writer(void *arg)
          * Begin Critical Section
          */
         pthread_mutex_lock(&mutex); 
-        pthread_cond_wait(&w, &mutex);
+        while(!readers){
+        	pthread_cond_wait(&w, &mutex);
+        }
         pthread_mutex_unlock(&mutex);
         
         printf("\n");
@@ -490,14 +496,10 @@ void *writer(void *arg)
         
         pthread_mutex_lock(&mutex);
         pthread_cond_signal(&w);
-        pthread_mutex_unlock(&mutex);
-        
-        
-        pthread_mutex_lock(&mutex);
+
         writers--;
         if (writers == 0){
         	pthread_cond_signal(&r);
-        	pthread_mutex_unlock(&mutex);
         }
         pthread_mutex_unlock(&mutex);
         /* 
