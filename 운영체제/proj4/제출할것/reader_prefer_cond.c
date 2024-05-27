@@ -424,7 +424,7 @@ void *reader(void *arg)
         /* 마지막 reader일 경우, 처음에 writer 대기열에서 sleep하고 있는 reader 스레드 포함 writer에서 sleep하고 있는 모든 스레드를 깨운다.
          * 이렇게 되면, writer도 임계구역에 접근할 권한이 생긴다. */
         if (active_readers == 0){ 
-        	pthread_cond_signal(&writer_cond);
+        	pthread_cond_broadcast(&writer_cond);
         }
         pthread_mutex_unlock(&mutex); // CS에서 나온다. (R간 상호배타를 종료한다.)
     }
