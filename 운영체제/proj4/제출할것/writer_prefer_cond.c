@@ -361,56 +361,78 @@ char *img5[L5] = {
 "\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x51\x20\x2E\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x5E\x21\x7C\x49\x7C\x51\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x4D\x51\x7C\x2E\x2E\x20\x2E\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x77\x77\x77\x2E\x73\x65\x67\x6E\x61\x6C\x69\x64\x69\x76\x69\x74\x61\x2E\x63\x6F\x6D"
 };
 
+/*
+ * alive 값이 true이면 각 스레드는 무한 루프를 돌며 반복해서 일을 하고,
+ * alive 값이 false가 되면 무한 루프를 빠져나와 스레드를 자연스럽게 종료한다.
+ */
 
-bool alive = true;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t w = PTHREAD_COND_INITIALIZER;
-pthread_cond_t r = PTHREAD_COND_INITIALIZER;
+/* 해당 코드는 reader-writer문제를 writer선호로 푼 것이다.
+ * reader가 먼저 기다리고 있더라도, writer가 기다리게 된다면, writer가 먼저 CS에 들어가도록 한다.
+ * 기다리고 있는 writer를 세기 위하여 waiting_writer변수를 이용한다.
+ * 한 개의 뮤텍스락과 두 개의 조건 변수로 구현하였다.
+ *
+ * r, w는 조건 변수로, 대기열이라고 가정한다. 
+ * 예를 들어, pthread_cond_wait(&r, &mutex)는 "해당 스레드가 r이라는 대기열의 맨 뒤에서 대기한다"는 의미이다. 
+ * pthread_cond_signal(&r)은 r이라는 대기열에 있는 "맨 앞 스레드를 깨워 mutex락을 기다리도록 한다"는 의미이다.
+ */
+bool alive = true; // 스레드가 활성화 상태인지 확인한다. 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // 공유 자원에 대한 접근을 동기화하는 데 사용한다. 
+pthread_cond_t w = PTHREAD_COND_INITIALIZER; // writer 스레드가 대기하거나, 신호를 받는 조건 변수이다. 
+pthread_cond_t r = PTHREAD_COND_INITIALIZER; // reader 스레드가 대기하거나, 신호를 받는 조건 변수이다. 
 
-int readers = 0; 
-int writers = 0; 
-int waiting_writers = 0; 
-
+int readers = 0; // 현재 reader의 수를 나타낸다. 
+int writers = 0; // 현재 활동 중인 writer의 수를 나타낸다. 
+int waiting_writers = 0; // 대기하고 있는 writer의 수를 나타낸다. 
+/*
+ * Reader 스레드는 같은 문자를 L0번 출력한다. 예를 들면 <AAA...AA> 이런 식이다.
+ * 출력할 문자는 인자를 통해 0이면 A, 1이면 B, ..., 등으로 출력하며, 시작과 끝을 <...>로 나타낸다.
+ * 단일 reader라면 <AAA...AA>처럼 같은 문자만 출력하겠지만, critical section에서 reader의
+ * 중복을 허용하기 때문에 reader가 많아지면 출력이 어지럽게 섞여서 나오는 것이 정상이다.
+ */
 void *reader(void *arg)
 {
     int id, i;
-
+    /*
+     * 들어온 인자를 통해 출력할 문자의 종류를 정한다.
+     */
     id = *(int *)arg;
-
+    /*
+     * 스레드가 살아 있는 동안 같은 문자열 시퀀스 <XXX...XX>를 반복해서 출력한다.
+     */
     while (alive) {
-        
-    	pthread_mutex_lock(&mutex);
-    	while (waiting_writers > 0){ 
-    		pthread_cond_wait(&r, &mutex); // signal받으면, 뮤텍스락을 얻으러 대기할것. 
+    	pthread_mutex_lock(&mutex);  // mutex 잠금을 통하여 CS에 진입한다. 
+    	while (waiting_writers > 0){ // 만약, 대기하고 있는 writer가 있다면(먼저 mutex락을 얻었더라도)
+    		pthread_cond_wait(&r, &mutex); // 해당 스레드를 r이라는 조건 변수 대기열에서 대기시켜, writer가 우선시되도록 한다. 
     	}
-    	// 상호배타가 되어있음. (mutex락을 들고 왔으므로)
-	// 안에서 하나가 실행되고 있으니까, 바깥에 있는 대기열에서 하나 부름.
-    	readers++; 
+        // signal을 받아 스레드가 깨어난 후에, mutex락을 얻은 스레드만이 실행될 수 있기에, reader 스레드 간 상호배타가 되어있는 상태이다.
+    	readers++; // reader 스레드의 수를 증가시킨다. 	
+    	pthread_mutex_unlock(&mutex); // CS에서 나온다. (R간 상호배타를 종료하기에 문자 출력에 여러 reader 스레드가 섞여 출력될 수 있다. )
 
-       /* while (readers == 1){ 
-    		pthread_cond_wait(&w, &mutex);
-    	}*/
-    	
-    	pthread_mutex_unlock(&mutex);
-	
+        // 문자를 출력한다. 
         printf("<");
         for (i = 0; i < L0; ++i)
             printf("%c", 'A'+id);
         printf(">");
         
+        // 출력 이후 스레드의 수를 감소시키기 위해 CS에 접근한다. 
+        pthread_mutex_lock(&mutex); // mutex 잠금을 통하여 CS에 진입한다.(R간 상호배타를 시작한다.)
+        readers--;                  // print가 끝난 스레드이므로, R의 수를 감소시킨다. 
         
-        pthread_mutex_lock(&mutex);
-        readers--;
-        
-        if (readers == 0 && waiting_writers > 0){
-        	pthread_cond_signal(&w); 
+        if (readers == 0 && waiting_writers > 0){ // 마지막 reader이고, 기다리는 writer가 존재한다면, 
+        	pthread_cond_signal(&w);  // reader 스레드가 모두 출력을 끝냈을 경우에, writer 대기열에서 sleep 하고 있는 writer 스레드를 깨운다.
+                                      // 이렇게 되면, writer 스레드에게 임계 구역에 접근할 수 있는 기회가 생긴다.
         }
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex); // CS에서 나온다. (R간 상호배타를 종료한다.)
 
     }
     pthread_exit(NULL);
 }
-
+/*
+ * Writer 스레드는 어떤 사람의 얼굴 이미지를 출력한다.
+ * 이미지는 여러 종류가 있으며 인자를 통해 식별한다.
+ * Writer가 critical section에 있으면 다른 writer는 물론이고 어떠한 reader도 들어올 수 없다.
+ * 만일 이것을 어기고 다른 writer나 reader가 들어왔다면 얼굴 이미지가 깨져서 쉽게 감지된다.
+ */
 void *writer(void *arg)
 {
     int id, i;
@@ -421,17 +443,20 @@ void *writer(void *arg)
 
     while (alive) {
         
-    	pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex); // CS에 진입하기 위해 mutex락을 한다. 
     	
-    	waiting_writers++;
-   	while(readers > 0 || writers > 0){ 
-   		pthread_cond_wait(&w, &mutex);
-	}
+    	waiting_writers++;          // 대기열에 들어가기 전, waiting_writer의 수를 센다. 
+   	    while(readers > 0 || writers > 0){ // 출력 전에, reader와 writer가 출력 중인지 확인한다. 
+   		    pthread_cond_wait(&w, &mutex); // 만일 그렇다면, w 대기열에 스레드를 대기시킨다.
+	    }
+        // w 대기열에서 잠들어 있는 writer 스레드 중에,
+        // signal을 받고 스레드가 깨어나서
+        // 오로지 하나의 writer만이 출력할 수 있게 된 상태
+	    waiting_writers--; // 출력할 수 있는 상태이므로 waiting_writers를 감소시킨다. 
+	    writers++;         // 활동 중인 writer의 수를 증가시킨다. 
+	    pthread_mutex_unlock(&mutex); // mutex락을 해제한다. (while문에 의해서 writer가 출력 중이면 다른 스레드는 출력할 수 없다.)
 
-	waiting_writers--;
-	writers++;
-	pthread_mutex_unlock(&mutex);
-		 
+        // 얼굴을 출력한다.  
         printf("\n");
         switch (id) {
             case 0:
@@ -458,20 +483,17 @@ void *writer(void *arg)
                 ; 
         }
         
-        pthread_mutex_lock(&mutex);
-        writers--;
+        pthread_mutex_lock(&mutex); // CS에 진입한다. 
+        writers--;                  // print가 끝났기 때문에 활동중인 writer의 수를 감소시킨다. 
 
        
-        if (waiting_writers > 0){ 
-        	pthread_cond_signal(&w);
-        } else{
-        	pthread_cond_broadcast(&r);
+        if (waiting_writers > 0){       // 만일 기다리고 있는 writer가 있다면, 
+        	pthread_cond_signal(&w);    //w 대기열에서 잠들어있는 writer 스레드를 깨운다.
+        } else{                         // 기다리고 있는 스레드가 없다면 
+        	pthread_cond_broadcast(&r); // r 대기열에 있는 모든 스레드를 깨워 CS에 접근할 수 있는 기회를 준다.
         }
 
-        pthread_mutex_unlock(&mutex);
-        /* 
-         * End Critical Section
-         */
+        pthread_mutex_unlock(&mutex);   // CS에서 나온다. 
 
         req.tv_sec = 0;
         req.tv_nsec = rand() % SLEEPTIME;
@@ -518,20 +540,20 @@ int main(void)
     /*
      * Now terminate all threads and leave
      */
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex); // 조건 변수에 접근하기 위하여 mutex락을 획득한다.
     alive = false;
-    pthread_cond_broadcast(&r);
-    pthread_cond_broadcast(&w);
-    pthread_mutex_unlock(&mutex);
+    pthread_cond_broadcast(&r); // 스레드를 join하기 전에 잠들어 있는 스레드는 join할 수 없기에, r 대기열에 있는 모든 스레드를 깨운다.
+    pthread_cond_broadcast(&w); // 스레드를 join하기 전에 잠들어 있는 스레드는 join할 수 없기에, w 대기열에 있는 모든 스레드를 깨운다.
+    pthread_mutex_unlock(&mutex); // mutex락을 해제한다. 
     
     for (i = 0; i < NREAD; ++i)
         pthread_join(rthid[i], NULL);
     for (i = 0; i < NWRITE; ++i)
         pthread_join(wthid[i], NULL);
         
-    pthread_mutex_destroy(&mutex);
-    pthread_cond_destroy(&r);
-    pthread_cond_destroy(&w);
+    pthread_mutex_destroy(&mutex); // mutex락을 없앤다. 
+    pthread_cond_destroy(&r);      // r 조건변수를 없앤다.
+    pthread_cond_destroy(&w);      // w 조건변수를 없앤다.
     
     
     return 0;
