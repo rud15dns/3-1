@@ -365,15 +365,22 @@ char *img5[L5] = {
  * alive 값이 true이면 각 스레드는 무한 루프를 돌며 반복해서 일을 하고,
  * alive 값이 false가 되면 무한 루프를 빠져나와 스레드를 자연스럽게 종료한다.
  */
-bool alive = true;
-int readers = 0;
-int writers = 0;
-int waiting_writers = 0;
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t r = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t w = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t t = PTHREAD_MUTEX_INITIALIZER;
+/*
+ * reader-writer문제를 뮤텍스를 이용한 writer선호 방식으로 해결한 코드이다.
+ * reader가 기다리고 있더라도, 늦게 온 writer가 reader보다 먼저 실행될 수 있도록 한다. 
+ * writer가 실행되고 있을 때에는 어떠한 reader나 writer가 임계구역에 진입해서는 안된다. 
+ * 총 네 개의 뮤텍스를 사용하며, mutex락을 걸어주는 것을 해당 스레드가 임계구역에 진입하기 위하여 대기표를 뽑는 행위로 해석한다.
+ * mutex락을 풀어주는 것은 해당 스레드가 대기를 끝내는 것을 의미한다. 
+ */
+bool alive = true; // 스레드가 활성화 상태인지 나타낸다. 
+int readers = 0;   // 현재 reader의 수를 나타낸다. 
+int writers = 0;   // 현재 writer의 수를 나타낸다. 
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // writer가 CS에 진입할 때(W대기표) 사용하는 mutex락이다.
+pthread_mutex_t r = PTHREAD_MUTEX_INITIALIZER;  // reader의 수를 증가하거나 감소시킬 때 사용하는 mutex락이다.
+pthread_mutex_t w = PTHREAD_MUTEX_INITIALIZER; // writer의 수를 증가하거나 감소시킬 때 사용하는 mutex락이다. 
+pthread_mutex_t t = PTHREAD_MUTEX_INITIALIZER; // writer가 활동 중일 때 reader가 기다리는, R대기표의 역할을 하는 mutex락이다.
 /*
  * Reader 스레드는 같은 문자를 L0번 출력한다. 예를 들면 <AAA...AA> 이런 식이다.
  * 출력할 문자는 인자를 통해 0이면 A, 1이면 B, ..., 등으로 출력하며, 시작과 끝을 <...>로 나타낸다.
@@ -393,40 +400,33 @@ void *reader(void *arg)
      */
     while (alive) {
     	
-    	pthread_mutex_lock(&t); // 작성자가 활동 중인지 확인. R대기표를 뽑는다.
-    	pthread_mutex_lock(&r); // R간 상호배타 시작. 
+    	pthread_mutex_lock(&t); // writer가 활동 중인지 확인한다. 
+                                // writer가 활동 중이라면, writer가 t에 대한 lock을 가지고 있기 때문에 reader스레드에서 t락을 가져갈 수 없다.(R대기표를 뽑는 행위)
+    	pthread_mutex_lock(&r); // writer의 활동이 끝나면, R간 상호배타를 시작한다.
     
        
-        pthread_mutex_unlock(&t); // 다음 R이 들어올 수 있게 R대기표를 폐기한다. 
+        pthread_mutex_unlock(&t);       // t락을 풀어 다음 reader 스레드가 t락을 가져가 다음 reader 스레드가 진입할 수 있도록 한다. (R대기표를 폐지하는 행위)
         
-        readers++;
-         if (readers == 1){
-        	pthread_mutex_lock(&mutex); // 첫번째 reader가 mutex를 잠금. W대기표를 뽑는다. 
+        readers++;                      // reader의 수를 증가시킨다. 
+        if (readers == 1){
+        	pthread_mutex_lock(&mutex); // 첫번째 reader가 mutex락을 걸어 writer를 차단하는 동안에 많은 reader가 진입할 수 있도록 한다. 
         }
         
-        pthread_mutex_unlock(&r);
-        //pthread_mutex_unlock(&t);
+        pthread_mutex_unlock(&r);       // reader 스레드 간 상호배타를 종료한다. 
         
-       
-        /*
-         * Begin Critical Section
-         */
+        // 문자를 출력한다. 
         printf("<");
         for (i = 0; i < L0; ++i)
             printf("%c", 'A'+id);
         printf(">");
         
-     
+        // reader 변수에 접근하기 위하여 Reader 스레드간 상호배타를 시작한다.
         pthread_mutex_lock(&r);
-        readers--;
-        if (readers == 0){
-        	pthread_mutex_unlock(&mutex); // 마지막 reader가 mutex를 해제.
+        readers--;         // print가 끝났기에 reader 스레드의 수를 감소시킨다. 
+        if (readers == 0){ // 모든 reader가 print를 끝냈다면, writer스레드가 들어올 수 있도록 mutex락을 푼다. 
+        	pthread_mutex_unlock(&mutex); 
         }
-        pthread_mutex_unlock(&r);
-       
-        /* 
-         * End Critical Section
-         */
+        pthread_mutex_unlock(&r); // reader 스레드간 상호배타를 종료한다. 
     }
     pthread_exit(NULL);
 }
@@ -452,20 +452,18 @@ void *writer(void *arg)
      * 스레드가 살아 있는 동안 같은 이미지를 반복해서 출력한다.
      */
     while (alive) {
-    	 pthread_mutex_lock(&w);
-    	 writers++;
+    	pthread_mutex_lock(&w); // writer변수에 접근하기 위하여 writer 스레드간 상호배타를 시작한다. 
+    	writers++;              // writer 스레드의 수를 증가시킨다.
     	 
-    	 if (writers == 1){
-    	 	pthread_mutex_lock(&t); // 첫번째 writer가 t를 잠금. R대기표 뽑는다.
-    	 }
+    	if (writers == 1){          // 만일 첫 번째 writer라면, 
+    	 	pthread_mutex_lock(&t); // 첫번째 writer가 t를 잠가 writer스레드가 실행되는 동안 기다리도록 한다.
+    	}
     	 
-    	 pthread_mutex_unlock(&w);
+    	pthread_mutex_unlock(&w);   // writer 스레드 간 상호배타를 종료한다. 
     	 
-    	 pthread_mutex_lock(&mutex); // CS 접근.W대기표 뽑는다.
-        /*
-         * Begin Critical Section
-         */
-        printf("\n");
+    	pthread_mutex_lock(&mutex); // CS에 접근할 수 있는 것은 writer 스레드 하나이기 때문에 mutex락을 얻은 스레드만이, CS에 진입할 수 있다.
+
+        printf("\n");               // 얼굴 출력한다.
         switch (id) {
             case 0:
                 for (i = 0; i < L1; ++i)
@@ -490,17 +488,14 @@ void *writer(void *arg)
             default:
                 ;
         }
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex); // 다음 writer가 들어올 수 있도록 mutex락을 해제한다.
         
-        pthread_mutex_lock(&w);
-        writers--;
-        if (writers == 0){
+        pthread_mutex_lock(&w); // writer 스레드의 수를 감소시키기 위하여 writer 스레드 간 상호배타를 시작한다. 
+        writers--;              // 하나의 얼굴 출력이 끝났기에 writer 스레드 수를 감소시킨다.
+        if (writers == 0){      // 마지막 writer 라면, reader가 CS에 접근할 수 있도록 t락을 해제한다.
         	pthread_mutex_unlock(&t);
         }
-        pthread_mutex_unlock(&w);
-        /* 
-         * End Critical Section
-         */
+        pthread_mutex_unlock(&w); // writer 스레드 간 상호배타를 종료한다. 
         /*
          * 이미지 출력 후 SLEEPTIME 나노초 안에서 랜덤하게 쉰다.
          */
@@ -558,7 +553,8 @@ int main(void)
         pthread_join(rthid[i], NULL);
     for (i = 0; i < NWRITE; ++i)
         pthread_join(wthid[i], NULL);
-        
+    
+    // 사용한 mutex락을 해제한다.
     pthread_mutex_destroy(&mutex);
     pthread_mutex_destroy(&r);
     pthread_mutex_destroy(&w);
