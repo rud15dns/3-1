@@ -1,0 +1,299 @@
+/* global */
+* {
+    margin: 0;
+    padding: 0;
+}
+a{
+    /* 밑줄 긋는 거 사라짐 */
+    text-decoration: none;
+}
+a:visited{ 
+    /* 배경 하얗게 */
+    color: white;
+}
+
+
+.landing-frame{
+    width: 1080px;
+    height: 1920px;
+    background-color: rgb(28, 36, 37);
+}
+
+.frame {
+    width: 1080px;
+    height: 1920px;
+    background-image: url('images/ocean.png');
+}
+
+.dim{
+    position: absolute;
+    width: 1080px;
+    height: 1920px;
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+footer {
+    position: absolute;
+    width: 100%;
+    bottom: 10px;
+    color: #999;
+    text-align: center;
+    /* background-color: rgba(189, 164, 23, 0.1); */
+}
+
+footer h3 {
+    padding: 3px;
+}
+
+footer p {
+    padding: 2px;
+}
+/* Landing page */
+.landing-vid{
+    position: absolute;
+    width: 1080px;
+    height: 1920px;
+    top: 0;
+    left: 0;
+    /* 영상이 알아서 화면에 맞춰짐 */
+    object-fit: cover;
+}
+
+.landing-main{
+    /* 글씨 색과 가운데 정렬 */
+    position: relative;
+    padding-top: 680px;
+    text-align: center;
+    color: white;
+}
+
+.landing-main p{
+    /* 화면 터치 시작 아래로 */
+    font-family: "Noto Sans KR", sans-serif;
+    font-size: 35pt;
+    padding-top: 870px;
+}
+/* Main page */
+.main-vid {
+    width: 1080px;
+}
+
+.main-headline {
+    font-family: "Urbanist", sans-serif;
+    color: rgb(62, 162, 250);
+    text-align: center;
+}
+
+.main-headline h2 {
+    width: 300px;
+    font-size: 30pt;
+    font-weight: 1000;
+    margin: 0 auto;
+    margin-top: 38px;
+    padding-top: 24px;
+    border-top: 1px solid #9c9c9c;
+}
+
+/* Navigation */
+main {
+    /* border: 1px dashed red; */
+}
+
+.main-section {
+    height: 360px;
+    margin-top: 36px;
+    background-image: url('images/sale.png');
+    background-repeat: no-repeat;
+    background-position: right top;
+    font-family: "Noto Sans KR", sans-serif;
+    color: #FFFFFF;
+}
+
+.main-section p {
+    font-size: 20pt;
+    font-weight: 500;
+    padding: 330px 0 0 0;
+    text-align: center;
+}   
+
+.main-nav {
+    width: 1020px;
+    margin: 0 auto;
+}
+
+.nav {
+    position: relative;
+    height: 300px;
+    box-sizing: border-box;
+    border: 5px solid #d7f2ff;
+    border-radius: 32px;
+}
+
+.nav-1 {
+    display: inline-block;
+    width: 500px;
+    margin: 20px 0 0 0;
+    background-image: url('images/animal-nav-1.png');
+    background-position: center;
+    background-size: cover;
+}
+
+
+.nav-2 {
+    display: inline-block;
+    width: 500px;
+    margin: 20px 14px 0 0;
+    background-image: url('images/sports-nav-2.jpg');
+    background-position: center;
+    background-size: cover;
+}
+
+.nav-3 {
+    display: inline-block;
+    width: 500px;
+    margin: 20px 0 0 0;
+    background-image: url('images/kerby-nav-3.jpg');
+    background-position: center;
+    background-size: cover;
+}
+
+.nav-4 {
+    display: inline-block;
+    width: 500px;
+    margin: 20px 0 0 0;
+    background-image: url('images/splatoon3-nav-4.jpg');
+    background-position: center;
+    background-size: cover;
+}
+
+
+.main-nav h2 {
+    position: absolute;
+    text-align: right;
+    width: 300px;
+    right: 20px;
+    bottom: 20px;
+    padding: 10px 20px;
+    color: rgb(0, 0, 0);
+    border-left: 2px solid wheat;
+    background-color: rgba(185, 185, 185, 0.4);
+}
+
+.sub-header {
+    height: 608px;
+    background-image: url('images/animal-nav-1.png');
+    background-position: center;
+    background-size: cover;
+    margin-bottom: 5px;
+}
+
+.sub-header nav {
+    
+    display: flex;
+    align-items: center;
+    padding: 10px 0 10px 0;
+    text-align: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    /* border: 1px dashed greenyellow; */
+}
+
+.header nav {   
+    display: flex;
+    align-items: center;
+    padding: 10px 0 10px 0;
+    text-align: center;
+    /* background-color: rgba(0, 0, 0, 0.5); */
+    background-image: url('images/subheader.png');
+    height: 70px;
+    /* border: 1px dashed greenyellow;*/
+}
+
+.header nav ul li {
+    display: inline-block;
+    padding: 0 140px;
+    height:100%;
+    font-weight: 1000;
+    font-size: 13pt;
+    /* border: 1px dashed blue; */
+}
+.gallery-vid{
+    position: absolute;
+    width: 1080px;
+    height: 630px;
+    top: 0;
+    left: 0;
+    /* 영상이 알아서 화면에 맞춰짐 */
+    object-fit: cover;
+}   
+.sub-header nav ul {
+    display: flex;
+    color: white;
+    /* border: 1px dashed orange; */
+}
+
+.sub-header nav ul li {
+    display: inline-block;
+    padding: 0 50px;
+    font-weight: 1000;
+    font-size: 13pt;
+    /* border: 1px dashed blue; */
+}
+
+.nav-logo {
+    display: inline-block;
+    margin: 0 auto;
+    filter: invert(360);
+    /* border: 1px dashed red; */
+}
+
+.sub-logo {
+    margin: 50px 0 0 0;
+    text-align: center;
+}
+
+.sub-section {
+    font-family: "Noto Sans KR", sans-serif;
+    text-align: center;
+    color: rgba(27, 29, 155, 0.614);
+}
+
+.sub-section h1 {
+    font-size: 28pt;
+    padding: 40px 0 30px 0;
+}
+
+.sub-section h2 {
+    font-weight: 400;
+}
+.sub-gallery {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 70px;
+    /* border: 1px dashed orange; */
+}
+
+.arrow {
+    width: 20px;
+    padding: 320px 20px 320px 20px;
+    /* border: 1px dashed red; */
+}
+
+.gallery-img {
+    width: 100%;
+    height: inherit;
+    background-image: url('images/screenshot.png');
+    background-position: center;
+    background-size: cover;
+    /* border: 1px dashed yellowgreen; */
+}
+
+.footer {
+
+    background-image: url('images/footer.png'); /* 배경 이미지 추가 */
+    background-size: cover; /* 이미지가 요소를 덮도록 설정 */
+    background-position: center; /* 이미지가 중앙에 위치하도록 설정 */
+
+}
